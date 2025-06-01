@@ -10,16 +10,11 @@ By default, this class uses the CSV file 'lichess_db_puzzle.csv' from https://da
 which contains 4,827,507 chess puzzles, last updated on 2025-05-16.
 
 Usage:
->>> reader = PuzzleReader()
->>> puzzles = reader.get_puzzle(themes=['mateIn1'], ratingRange=[1000, 2000], count=5)
->>> reader.write_puzzles_to_file(puzzles, 'filtered_puzzles.csv')
->>> reader.get_puzzle_by_id(123456)
->>> reader.get_all_themes()
->>> reader.get_rating_range()
->>> reader.get_popularity_range()
->>> reader.get_puzzle_attributes()
+>>> import ChessPuzzleKit as cpk
+>>> puzzle = cpk.get_puzzle(themes=['mateIn2'], ratingRange=(1500, 2000), popularityRange=(100, 500), count=1)
+>>> print(puzzle)
 
-The CSV file contains the following columns:
+The database contains the following columns:
 ['PuzzleId', 'FEN', 'Moves', 'Rating', 'RatingDeviation', 'Popularity', 'NbPlays', 'Themes', 'GameUrl', 'OpeningTags']
     - PuzzleId: Unique identifier for the puzzle.
     - FEN: Forsyth-Edwards Notation string representing the chess board position.
@@ -42,7 +37,6 @@ Possible themes are:
 'bodenMate', 'anastasiaMate', 'doubleBishopMate', 'arabianMate', 'hookMate', 'killBoxMate', 'vukovicMate',
 'dovetailMate', 'exposedKing', 'crushing', 'deflection', 'veryLong', 'long', 'short', 'oneMove', 'master',
 'superGM', 'masterVsMaster', 'advantage', 'opening', 'castling'
-
 
 Possible ratings range from 339 to 3352.
 Possible popularities range from -89 to 100.
@@ -160,6 +154,7 @@ def get_all_themes():
         if row[0]:
             themes.update(row[0].split(' '))
     return themes
+
 def write_puzzles_to_file(puzzles, file_path, header=False):
     """
     Writes a list of puzzles to a specified file in CSV format.
@@ -180,7 +175,7 @@ def write_puzzles_to_file(puzzles, file_path, header=False):
     
     df = pd.DataFrame(puzzles)
     try:
-        df.to_csv(file_path, index=False, encoding='utf-8', header=False)
+        df.to_csv(file_path, index=False, encoding='utf-8', header=header)
     except IOError as e:
         raise IOError(f"Error writing to file {file_path}: {e}")
 
