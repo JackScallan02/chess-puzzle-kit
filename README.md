@@ -50,13 +50,6 @@ master             superGM              masterVsMaster      advantage
 opening            castling
 ```
 
-### Rating and Popularity Ranges
-
-| Attribute    | Min   | Max   |
-|--------------|-------|-------|
-| Rating       | 339   | 3352  |
-| Popularity   | -89   | 100   |
-
 ### Available Puzzle Attributes
 
 | Attribute         | Description (editable)                              |
