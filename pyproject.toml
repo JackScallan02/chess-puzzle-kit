@@ -1,0 +1,35 @@
+[project]
+name = "ChessPuzzleKit"
+version = "0.1.0"
+description = "A Python library for working with chess puzzles from the Lichess database."
+readme = "README.md"
+authors = [
+    { name = "Jack Scallan", email = "breezechess99@gmail.com" }
+]
+license = { text = "MIT" }
+requires-python = ">=3.7"
+dependencies = [
+    "requests",
+    "pandas",
+]
+
+[project.urls]
+Homepage = "https://github.com/JackScallan02/chess-puzzle-kit"
+Repository = "https://github.com/JackScallan02/chess-puzzle-kit"
+
+[tool.setuptools.packages.find]
+where = ["ChessPuzzleKit"]
+
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "black",
+    "ruff"
+]
+
+[tool.setuptools]
+package-dir = {"" = "ChessPuzzleKit"}
