@@ -1,6 +1,8 @@
-import random
-import re
 import pandas as pd
+import sqlite3
+from pathlib import Path
+import os
+import requests
 
 class PuzzleReader:
     """
@@ -16,10 +18,14 @@ class PuzzleReader:
     Attributes:
         puzzle (pd.DataFrame): A pandas DataFrame containing the puzzles read from the CSV file.
     Usage:
-        reader = PuzzleReader(puzzle_file='path/to/your/lichess_db_puzzle.csv')
-        puzzles = reader.get_puzzle(themes=['mateIn2', 'mateIn3'], ratingRange=[1000, 2000], popularityRange=[80, 100], count=20)
-        print(puzzles)
-
+    >>> reader = PuzzleReader()
+    >>> puzzles = reader.get_puzzle(themes=['mateIn1'], ratingRange=[1000, 2000], count=5)
+    >>> reader.write_puzzles_to_file(puzzles, 'filtered_puzzles.csv')
+    >>> reader.get_puzzle_by_id(123456)
+    >>> reader.get_all_themes()
+    >>> reader.get_rating_range()
+    >>> reader.get_popularity_range()
+    >>> reader.get_puzzle_attributes()
 
     The CSV file contains the following columns:
     ['PuzzleId', 'FEN', 'Moves', 'Rating', 'RatingDeviation', 'Popularity', 'NbPlays', 'Themes', 'GameUrl', 'OpeningTags']
@@ -51,38 +57,70 @@ class PuzzleReader:
 
     """
 
-    def __init__(self, puzzle_file):
+    DB_URL = 'https://github.com/JackScallan02/chess-puzzle-kit/releases/download/v0.1.0/lichess_db_puzzle.db'
+    LOCAL_PATH = Path.home() / '.chess_puzzles' / 'lichess_db_puzzle.db'
+
+    def __init__(self):
         self.puzzle = []
 
-        if (puzzle_file):
-            self.read_puzzle_file(puzzle_file)
+        if not self.LOCAL_PATH.exists():
+            self._download_db()
+        self.conn = sqlite3.connect(self.LOCAL_PATH)
 
-    def read_puzzle_file(self, puzzle_file):
+    def _download_db(self):
+        os.makedirs(self.LOCAL_PATH.parent, exist_ok=True)
+        print("Downloading puzzle database...")
+        with requests.get(self.DB_URL, stream=True) as r:
+            r.raise_for_status()
+            with open(self.LOCAL_PATH, "wb") as f:
+                for chunk in r.iter_content(chunk_size=8192):
+                    f.write(chunk)
+
+    def get_puzzle(self, themes=None, ratingRange=None, popularityRange=None, count=10):
         """
-        Reads the CSV file containing lichess puzzles and stores it in a pandas DataFrame.
-
+        Retrieves a list of random puzzles based on specified themes, rating range, and popularity range.
         Args:
-            puzzle_file (str): The path to the CSV file containing the puzzles.
-
+            themes (list): A list of themes to filter puzzles by. If None, no theme filtering is applied.
+            ratingRange (list): A list containing two integers [min_rating, max_rating] to filter puzzles by rating.
+                                If None, no rating filtering is applied.
+            popularityRange (list): A list containing two integers [min_popularity, max_popularity] to filter puzzles by popularity.
+                                    If None, no popularity filtering is applied.
+            count (int): The number of random puzzles to retrieve. Defaults to 10.
         Returns:
-            pd.DataFrame: A DataFrame containing the puzzles read from the CSV file.
-
+            list: A list of dictionaries, each representing a puzzle that matches the specified criteria.
+                  Each dictionary contains the puzzle's attributes such as PuzzleId, FEN, Moves, Rating, etc.
         Raises:
-            FileNotFoundError: If the specified file does not exist.
-            pd.errors.EmptyDataError: If the file is empty.
-            Exception: For any other errors that occur while reading the file.
+            TypeError: If themes is not a list, or if ratingRange or popularityRange are not lists of two integers.
+            ValueError: If count is not a positive integer.
         """
-        try:
-            self.puzzle = pd.read_csv(puzzle_file, low_memory=False)
-            print(f"Successfully read {len(self.puzzle)} puzzles from {puzzle_file}")
-        except FileNotFoundError:
-            print(f"Error: The file {puzzle_file} does not exist.")
-        except pd.errors.EmptyDataError:
-            print("Error: The file is empty.")
-        except Exception as e:
-            print(f"An error occurred while reading the file: {e}")
+        if themes is not None and not isinstance(themes, list):
+            raise TypeError("Themes must be a list.")
+        if ratingRange is not None:
+            if not isinstance(ratingRange, list) or len(ratingRange) != 2 or not all(isinstance(x, int) for x in ratingRange):
+                raise TypeError("RatingRange must be a list of two integers.")
+        if popularityRange is not None:
+            if not isinstance(popularityRange, list) or len(popularityRange) != 2 or not all(isinstance(x, int) for x in popularityRange):
+                raise TypeError("PopularityRange must be a list of two integers.")
+        if not isinstance(count, int) or count <= 0:
+            raise ValueError("Count must be a positive integer.")
+        query = "SELECT * FROM puzzles WHERE 1=1"
+        params = []
+        if themes:
+            theme_clause = " OR ".join(["themes LIKE ?"] * len(themes))
+            query += f" AND ({theme_clause})"
+            params.extend([f"%{t}%" for t in themes])
+        if ratingRange:
+            query += " AND rating BETWEEN ? AND ?"
+            params.extend(ratingRange)
+        if popularityRange:
+            query += " AND popularity BETWEEN ? AND ?"
+            params.extend(popularityRange)
+        query += " ORDER BY RANDOM() LIMIT ?"
+        params.append(count)
 
-        return self.puzzle
+        cursor = self.conn.execute(query, params)
+        columns = [col[0] for col in cursor.description]
+        return [dict(zip(columns, row)) for row in cursor.fetchall()]
     
     def get_puzzle_by_id(self, puzzle_id):
         """
@@ -97,74 +135,57 @@ class PuzzleReader:
         Raises:
             TypeError: If puzzle_id is not an integer.
         """
-        if type(puzzle_id) is not int:
+        if not isinstance(puzzle_id, int):
             raise TypeError("PuzzleId must be an integer.")
-
-        puzzle = self.puzzle[self.puzzle['PuzzleId'] == puzzle_id]
-        if not puzzle.empty:
-            return puzzle.to_dict(orient='records')[0]
+        
+        query = "SELECT * FROM puzzles WHERE PuzzleId = ?"
+        cursor = self.conn.execute(query, (puzzle_id,))
+        row = cursor.fetchone()
+        
+        if row:
+            columns = [col[0] for col in cursor.description]
+            return dict(zip(columns, row))
         else:
             return None
 
-    def get_puzzle(self, themes=None, ratingRange=None, popularityRange=None, count=10):
-        """
-        Returns a random list of puzzles.
-
-        Args
-            themes (list, optional): A list of themes to filter puzzles by.
-            ratingRange (list | tuple, optional): Can be used to filter puzzles by a range of ratings (339, 3352).
-            popularityRange (list | tuple, optional): Can be used to filter puzzles by range of popularity (-89, 100).
-            count (int, optional): The number of puzzles to return (default 10).
-
-        Returns:
-            List[Dict]: A list of dictionaries representing the filtered puzzles.
-
-        Raises:
-            TypeError: If themes is not a list, count is not an integer, or ratingRange/popularityRange is not a list/tuple of 2 integers.
-            ValueError: If one or more themes are not found, or if count exceeds the number of puzzles available.
-        """
-        if type(themes) is not list and themes is not None:
-            raise TypeError("Themes must be a list.")
-        elif type(count) is not int:
-            raise TypeError("Count must be an integer.")
-        elif ratingRange is not None and ((type(ratingRange) is not list and type(ratingRange) is not tuple) or len(ratingRange) != 2) or not all(isinstance(x, int) for x in ratingRange):
-            raise TypeError("Rating range must be a list or tuple of 2 integers.")
-        elif popularityRange is not None and ((type(popularityRange) is not list and type(popularityRange) is not tuple) or len(popularityRange) != 2) or not all(isinstance(x, int) for x in popularityRange):
-            raise TypeError("Popularity range must be a list or tuple of 2 integers.")
-        elif themes is not None and any(theme not in self.get_all_themes() for theme in themes):
-            raise ValueError(f"One or more themes not found. Available themes: {self.get_all_themes()}")
-        elif count > len(self.puzzle):
-            raise ValueError(f"Count {count} exceeds the number of puzzles available: {len(self.puzzle)}")
-
-        filtered_df = self.puzzle
-        if ratingRange is not None:
-            filtered_df = self.puzzle[(self.puzzle['Rating'] >= ratingRange[0]) & (self.puzzle['Rating'] <= ratingRange[1])]
-
-        if themes is not None:
-            pattern = '|'.join(map(re.escape, themes))
-            filtered_df = filtered_df[filtered_df['Themes'].str.contains(pattern, case=False, na=False)]
-
-        if popularityRange is not None:
-            filtered_df = self.puzzle[(self.puzzle['Popularity'] >= popularityRange[0]) & (self.puzzle['Popularity'] <= popularityRange[1])]
-
-        random_rows = filtered_df.sample(n=count, random_state=random.randint(0, 1000))
-        return random_rows.to_dict(orient='records')
-    
     def get_all_themes(self):
         """
-        Retrieves a list of all unique themes in the csv file.
+        Retrieves a list of all unique themes.
 
         Returns:
             set: A set of all unique themes found in the puzzles.
 
         """
-        listOfThemes = self.puzzle['Themes'].unique().tolist()
-        setOfThemes = set()
-        for theme in listOfThemes:
-            splitThemes = theme.split(' ')
-            setOfThemes.update(splitThemes)
-
-        return setOfThemes
+        query = "SELECT DISTINCT Themes FROM puzzles"
+        cursor = self.conn.execute(query)
+        themes = set()
+        for row in cursor.fetchall():
+            if row[0]:
+                themes.update(row[0].split(' '))
+        return themes
+    def write_puzzles_to_file(self, puzzles, file_path, header=False):
+        """
+        Writes a list of puzzles to a specified file in CSV format.
+        Args:
+            puzzles (list): A list of dictionaries, each representing a puzzle.
+            file_path (str): The path to the file where the puzzles will be written.
+            header (bool): If True, writes the header row to the CSV file. Defaults to False.
+        Returns:
+            None
+        Raises:
+            TypeError: If puzzles is not a list or if any puzzle is not a dictionary.
+            IOError: If there is an error writing to the file.
+        """
+        if not isinstance(puzzles, list):
+            raise TypeError("Puzzles must be a list.")
+        if not all(isinstance(puzzle, dict) for puzzle in puzzles):
+            raise TypeError("Each puzzle must be a dictionary.")
+        
+        df = pd.DataFrame(puzzles)
+        try:
+            df.to_csv(file_path, index=False, encoding='utf-8', header=False)
+        except IOError as e:
+            raise IOError(f"Error writing to file {file_path}: {e}")
     
     def get_rating_range(self):
         """
@@ -172,9 +193,10 @@ class PuzzleReader:
         Returns:
             tuple: A tuple containing the minimum and maximum ratings
         """
-        if self.puzzle.empty:
-            return None, None
-        return self.puzzle['Rating'].min(), self.puzzle['Rating'].max()
+        query = "SELECT MIN(Rating), MAX(Rating) FROM puzzles"
+        cursor = self.conn.execute(query)
+        min_rating, max_rating = cursor.fetchone()
+        return (min_rating, max_rating)
     
     def get_popularity_range(self):
         """
@@ -182,25 +204,29 @@ class PuzzleReader:
         Returns:
             tuple: A tuple containing the minimum and maximum popularity
         """
-        if self.puzzle.empty:
-            return None, None
-        return self.puzzle['Popularity'].min(), self.puzzle['Popularity'].max()
+        query = "SELECT MIN(Popularity), MAX(Popularity) FROM puzzles"
+        cursor = self.conn.execute(query)
+        min_popularity, max_popularity = cursor.fetchone()
+        return (min_popularity, max_popularity)
     
-    def get_csv_attributes(self):
+    def get_puzzle_attributes(self):
         """
-        Retrieves all column attributes of the CSV file as a list.
+        Retrieves all attributes of a puzzle object.
 
         Returns:
-            list: A list of column names in the CSV file.
+            set: A set of each column name in the database.
         """
-        if self.puzzle.empty:
-            return []
-        return self.puzzle.columns.tolist()
+        query = "PRAGMA table_info(puzzles)"
+        cursor = self.conn.execute(query)
+        attributes = {row[1] for row in cursor.fetchall()}
+        return attributes
 
 
 if __name__ == "__main__":
-    reader = PuzzleReader(puzzle_file='../lichess_db_puzzle.csv')
-    print(reader.get_csv_attributes())
-    print(reader.get_popularity_range())
-    print(reader.get_rating_range())
-    print(reader.get_puzzle(themes=['mateIn2', 'mateIn3'], ratingRange=[1000, 2000], popularityRange=[80, 100], count=20))
+    reader = PuzzleReader()
+    puzzles = reader.get_puzzle(themes=['mateIn1'], ratingRange=[1000, 2000], count=5)
+    for puzzle in puzzles:
+        print(puzzle)
+    reader.write_puzzles_to_file(puzzles, 'filtered_puzzles.csv')
+    print("Puzzles written to 'filtered_puzzles.csv' successfully.")
+
