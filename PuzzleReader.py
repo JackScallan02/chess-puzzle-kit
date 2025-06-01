@@ -221,12 +221,3 @@ class PuzzleReader:
         attributes = {row[1] for row in cursor.fetchall()}
         return attributes
 
-
-if __name__ == "__main__":
-    reader = PuzzleReader()
-    puzzles = reader.get_puzzle(themes=['mateIn1'], ratingRange=[1000, 2000], count=5)
-    for puzzle in puzzles:
-        print(puzzle)
-    reader.write_puzzles_to_file(puzzles, 'filtered_puzzles.csv')
-    print("Puzzles written to 'filtered_puzzles.csv' successfully.")
-
