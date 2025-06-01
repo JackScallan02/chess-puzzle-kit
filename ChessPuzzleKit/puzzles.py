@@ -49,18 +49,18 @@ Possible popularities range from -89 to 100.
 
 """
 
-def get_puzzle(themes=None, ratingRange=None, popularityRange=None, count=10):
+def get_puzzle(themes=None, ratingRange=None, popularityRange=None, count=1):
     """
     Retrieves a list of random puzzles based on specified themes, rating range, and popularity range.
     Args:
         themes (list): A list of themes to filter puzzles by. If None, no theme filtering is applied.
-        ratingRange (list): A list containing two integers [min_rating, max_rating] to filter puzzles by rating.
+        ratingRange (list | tuple): A list containing two integers [min_rating, max_rating] to filter puzzles by rating.
                             If None, no rating filtering is applied.
-        popularityRange (list): A list containing two integers [min_popularity, max_popularity] to filter puzzles by popularity.
+        popularityRange (list | tuple): A list containing two integers [min_popularity, max_popularity] to filter puzzles by popularity.
                                 If None, no popularity filtering is applied.
         count (int): The number of random puzzles to retrieve. Defaults to 10.
     Returns:
-        list: A list of dictionaries, each representing a puzzle that matches the specified criteria.
+        list | dict : A list of dictionaries or one dictionary, each representing a puzzle that matches the specified criteria.
                 Each dictionary contains the puzzle's attributes such as PuzzleId, FEN, Moves, Rating, etc.
     Raises:
         TypeError: If themes is not a list, or if ratingRange or popularityRange are not lists of two integers.
@@ -70,11 +70,11 @@ def get_puzzle(themes=None, ratingRange=None, popularityRange=None, count=10):
     if themes is not None and not isinstance(themes, list):
         raise TypeError("Themes must be a list.")
     if ratingRange is not None:
-        if not isinstance(ratingRange, list) or len(ratingRange) != 2 or not all(isinstance(x, int) for x in ratingRange):
-            raise TypeError("RatingRange must be a list of two integers.")
+        if (not isinstance(ratingRange, list) and not isinstance(ratingRange, tuple)) or len(ratingRange) != 2 or not all(isinstance(x, int) for x in ratingRange):
+            raise TypeError("RatingRange must be a list or tuple of two integers.")
     if popularityRange is not None:
-        if not isinstance(popularityRange, list) or len(popularityRange) != 2 or not all(isinstance(x, int) for x in popularityRange):
-            raise TypeError("PopularityRange must be a list of two integers.")
+        if (not isinstance(popularityRange, list) and not isinstance(popularityRange, tuple)) or len(popularityRange) != 2 or not all(isinstance(x, int) for x in popularityRange):
+            raise TypeError("PopularityRange must be a list or tuple of two integers.")
     if not isinstance(count, int) or count <= 0:
         raise ValueError("Count must be a positive integer.")
     query = "SELECT * FROM puzzles WHERE 1=1"
@@ -94,7 +94,10 @@ def get_puzzle(themes=None, ratingRange=None, popularityRange=None, count=10):
 
     cursor = conn.execute(query, params)
     columns = [col[0] for col in cursor.description]
-    return [dict(zip(columns, row)) for row in cursor.fetchall()]
+    puzzles = [dict(zip(columns, row)) for row in cursor.fetchall()]
+    if len(puzzles) == 1:
+        return puzzles[0]
+    return puzzles
 
 def get_puzzle_raw(query):
     """
@@ -119,7 +122,7 @@ def get_puzzle_by_id(puzzle_id):
     Retrieves a puzzle by its unique PuzzleId.
 
     Args:
-        puzzle_id (int): The unique identifier for the puzzle.
+        puzzle_id (string): The unique identifier for the puzzle.
 
     Returns:
         dict: A dictionary representing the puzzle with the specified PuzzleId, or None if not found.
@@ -128,8 +131,8 @@ def get_puzzle_by_id(puzzle_id):
         TypeError: If puzzle_id is not an integer.
     """
     conn = get_connection()
-    if not isinstance(puzzle_id, int):
-        raise TypeError("PuzzleId must be an integer.")
+    if not isinstance(puzzle_id, str):
+        raise TypeError("PuzzleId must be a string.")
     
     query = "SELECT * FROM puzzles WHERE PuzzleId = ?"
     cursor = conn.execute(query, (puzzle_id,))
