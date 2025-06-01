@@ -56,3 +56,18 @@ opening            castling
 |--------------|-------|-------|
 | Rating       | 339   | 3352  |
 | Popularity   | -89   | 100   |
+
+### Available Puzzle Attributes
+
+| Attribute         | Description (editable)                              |
+|------------------|------------------------------------------------------|
+| `GameUrl`         | Link to the full Lichess game                       |
+| `FEN`             | Board state in Forsyth–Edwards Notation             |
+| `Moves`           | Solution moves for the puzzle                       |
+| `OpeningTags`     | ECO-style opening tags or names                     |
+| `PuzzleId`        | Unique identifier for the puzzle                    |
+| `NbPlays`         | Number of times the puzzle has been played          |
+| `Popularity`      | Popularity score of the puzzle                      |
+| `Rating`          | Difficulty rating of the puzzle                     |
+| `RatingDeviation` | Uncertainty in the puzzle's rating                  |
+| `Themes`          | List of themes (e.g., fork, pin, mateIn2)           |
