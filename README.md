@@ -64,3 +64,6 @@ opening            castling
 | `Rating`          | Difficulty rating of the puzzle (339 to 3352)       |
 | `RatingDeviation` | Uncertainty in the puzzle's rating                  |
 | `Themes`          | List of themes (e.g., fork, pin, mateIn2)           |
+
+### Contributions
+Bug reports, bug fixes, documentation improvements, enhancements, and ideas are welcome via email. Please send inquiries to `breezechess99@gmail.com`.
