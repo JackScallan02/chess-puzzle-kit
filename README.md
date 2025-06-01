@@ -1,4 +1,5 @@
 # ChessPuzzleKit
+[![PyPI version](https://img.shields.io/pypi/v/ChessPuzzleKit.svg)](https://pypi.org/project/ChessPuzzleKit/)
 
 **ChessPuzzleKit** is a Python library for accessing and working with chess puzzles from the [Lichess puzzle database](https://database.lichess.org/#puzzles). It provides functionality to retrieve unique puzzles by theme types, rating, and popularity, all with zero setup.
 
@@ -11,7 +12,7 @@
 - Returns puzzles as Python dictionaries
 
 ## Installation
-
+You can install this package from [PyPI](https://pypi.org/project/ChessPuzzleKit/):
 ```bash
 pip install ChessPuzzleKit
 ```
