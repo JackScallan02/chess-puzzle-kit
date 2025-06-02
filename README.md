@@ -66,4 +66,4 @@ opening            castling
 | `Themes`          | List of themes (e.g., fork, pin, mateIn2)           |
 
 ### Contributions
-Bug reports, bug fixes, documentation improvements, enhancements, and ideas are welcome via email. Please send inquiries to `breezechess99@gmail.com`.
+Bug reports, bug fixes, documentation improvements, enhancements, and ideas are all welcome - please submit an issue or start a discussion in this repository. For anything else, please send inquiries to `breezechess99@gmail.com`.
