@@ -23,6 +23,8 @@ from ._db import (
     download_default_db,
     set_db_path,
     close_all_connections,
+    get_connection,
+    create_db_from_csv,
 )
 
 # Define the public API for the package.
@@ -32,6 +34,8 @@ __all__ = [
     "close_all_connections",
     "download_default_db",
     "set_db_path",
+    "get_connection",
+    "create_db_from_csv",
 
     # from puzzles.py
     "get_all_themes",

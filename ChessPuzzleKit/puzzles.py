@@ -27,50 +27,6 @@ The database contains the following columns:
 ['PuzzleId', 'FEN', 'Moves', 'Rating', 'RatingDeviation', 'Popularity', 'NbPlays', 'Themes', 'GameUrl', 'OpeningTags']
 """
 
-class DataSource:
-    """
-    A class to abstract puzzle data loading from various sources:
-    SQLite database, CSV file, or pandas DataFrame.
-
-    Args:
-        source (str | pd.DataFrame): Path to SQLite database or CSV file, or a pandas DataFrame.
-        from_csv (bool): Whether the file source is a CSV. Ignored if source is a DataFrame.
-    """
-    def __init__(self, source, from_csv=False):
-        self.source = source
-        self.from_csv = from_csv
-        self._df = None
-
-    def load(self):
-        """
-        Loads the puzzles into a pandas DataFrame.
-
-        Returns:
-            pd.DataFrame: The loaded puzzle data.
-        """
-        if isinstance(self.source, pd.DataFrame):
-            self._df = self.source.copy()
-        elif isinstance(self.source, str):
-            if self.from_csv:
-                self._df = pd.read_csv(self.source)
-            else:
-                conn = sqlite3.connect(self.source)
-                self._df = pd.read_sql_query("SELECT * FROM puzzles", conn)
-                conn.close()
-        else:
-            raise TypeError("Source must be a pandas DataFrame or a file path string.")
-        return self._df
-
-    def get(self):
-        """
-        Returns the loaded DataFrame, or loads it if not already loaded.
-
-        Returns:
-            pd.DataFrame: The puzzle data.
-        """
-        return self._df if self._df is not None else self.load()
-
-
 def get_puzzle(themes=None, ratingRange=None, popularityRange=None, count=1):
     """
     Retrieves a list of random puzzles based on specified criteria.
