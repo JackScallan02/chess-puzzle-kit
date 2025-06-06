@@ -1,7 +1,7 @@
 [project]
 name = "ChessPuzzleKit"
-version = "0.1.0"
-description = "A Python library for working with chess puzzles from the Lichess database."
+version = "1.0.0"
+description = "A Python library for retrieving and filtering chess puzzles from the Lichess database."
 readme = "README.md"
 authors = [
     { name = "Jack Scallan", email = "breezechess99@gmail.com" }
