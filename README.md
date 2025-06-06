@@ -21,8 +21,14 @@ pip install ChessPuzzleKit
 ```py
 import ChessPuzzleKit as cpk
 
-# Optional: use custom sqlite database or file path
-cpk.set_db_path("/path/to/custom_database.db")
+# Optional: use custom sqlite database or CSV file
+custom_db_path = cpk.create_db_csv("/path/to/local_csv_file.csv")
+cpk.set_db_path(custom_db_path)
+
+# Or, locally download the database if it doesn't exist
+# By default, the database gets downloaded to .chess_puzzles in the HOME directory
+# The below code will connect to the database 
+cpk.get_connnection()
 
 puzzles = cpk.get_puzzle(themes=['fork'], ratingRange=[2000, 2200], count=3)
 themes = cpk.get_all_themes()
