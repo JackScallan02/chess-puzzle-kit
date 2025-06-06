@@ -1,6 +1,6 @@
 import pandas as pd
 import sqlite3
-from ._db import get_connection, set_db_path # Import set_db_path for user convenience
+from ._db import get_connection, set_db_path, download_default_db
 
 """
 This module manages reading and filtering Lichess puzzles from a SQLite database.
@@ -12,15 +12,15 @@ https://github.com/JackScallan02/chess-puzzle-kit/releases/tag/v0.1.0,
 which is derived from the Lichess puzzle database.
 
 Usage:
->>> from chess_puzzle_kit import puzzles, _db
+>>> import chess_puzzle_kit as cpk
 >>> # Download the default database if you don't have it
->>> # _db.download_default_db()
+>>> # cpk.download_default_db()
 >>>
 >>> # Or, if you have a custom database path:
->>> # _db.set_db_path('/path/to/your/custom_puzzles.db')
+>>> # cpk.set_db_path('/path/to/your/lichess_db_puzzle.db')
 >>>
 >>> # Get a puzzle
->>> puzzle = puzzles.get_puzzle(themes=['mateIn2'], ratingRange=(1500, 2000))
+>>> puzzle = cpk.get_puzzle(themes=['mateIn2'], ratingRange=(1500, 2000))
 >>> print(puzzle)
 
 The database contains the following columns:
