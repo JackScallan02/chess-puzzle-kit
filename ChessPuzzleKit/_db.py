@@ -115,6 +115,9 @@ def create_db_from_csv(csv_path, db_path):
     Raises:
         FileNotFoundError: If the CSV file does not exist.
         Exception: For any database errors.
+
+    Returns:
+        db_path (Path): The path to the created SQLite database.
     """
     csv_path = Path(csv_path)
     db_path = Path(db_path)
@@ -164,3 +167,5 @@ def create_db_from_csv(csv_path, db_path):
 
     # Optionally, set the created DB as current DB path
     set_db_path(db_path)
+
+    return db_path
