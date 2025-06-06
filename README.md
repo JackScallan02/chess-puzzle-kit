@@ -21,6 +21,9 @@ pip install ChessPuzzleKit
 ```py
 import ChessPuzzleKit as cpk
 
+# Optional: use custom sqlite database or file path
+cpk.set_db_path("/path/to/custom_database.db")
+
 puzzles = cpk.get_puzzle(themes=['fork'], ratingRange=[2000, 2200], count=3)
 themes = cpk.get_all_themes()
 print(themes)
