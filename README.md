@@ -1,4 +1,5 @@
 # ChessPuzzleKit
+[![PyPI version](https://img.shields.io/pypi/v/ChessPuzzleKit.svg)](https://pypi.org/project/ChessPuzzleKit/)
 
 **ChessPuzzleKit** is a Python library for accessing and working with chess puzzles from the [Lichess puzzle database](https://database.lichess.org/#puzzles). It provides functionality to retrieve unique puzzles by theme types, rating, and popularity, all with zero setup.
 
@@ -11,7 +12,7 @@
 - Returns puzzles as Python dictionaries
 
 ## Installation
-
+You can install this package from [PyPI](https://pypi.org/project/ChessPuzzleKit/):
 ```bash
 pip install ChessPuzzleKit
 ```
@@ -49,9 +50,20 @@ master             superGM              masterVsMaster      advantage
 opening            castling
 ```
 
-### Rating and Popularity Ranges
+### Available Puzzle Attributes
 
-| Attribute    | Min   | Max   |
-|--------------|-------|-------|
-| Rating       | 339   | 3352  |
-| Popularity   | -89   | 100   |
+| Attribute         | Description (editable)                              |
+|------------------|------------------------------------------------------|
+| `GameUrl`         | Link to the full Lichess game                       |
+| `FEN`             | Board state in Forsyth–Edwards Notation             |
+| `Moves`           | Solution moves for the puzzle                       |
+| `OpeningTags`     | Opening tags or names                               |
+| `PuzzleId`        | Unique identifier for the puzzle                    |
+| `NbPlays`         | Number of times the puzzle has been played          |
+| `Popularity`      | Popularity score of the puzzle (-89 to 100)         |
+| `Rating`          | Difficulty rating of the puzzle (339 to 3352)       |
+| `RatingDeviation` | Uncertainty in the puzzle's rating                  |
+| `Themes`          | List of themes (e.g., fork, pin, mateIn2)           |
+
+### Contributions
+Bug reports, bug fixes, documentation improvements, enhancements, and ideas are all welcome - please submit an issue or start a discussion in this repository. For anything else, please send inquiries to `breezechess99@gmail.com`.
