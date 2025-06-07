@@ -1,9 +1,8 @@
 import pandas as pd
-import sqlite3
-from ._db import get_connection, set_db_path, download_default_db
+from ._db import get_connection, get_database_type
 
 """
-This module manages reading and filtering Lichess puzzles from a SQLite database.
+This module manages reading and filtering Lichess puzzles from a SQLite or PostgreSQL database.
 The functions provide methods to filter puzzles by various criteria, retrieve
 random puzzles, and write puzzles to a file.
 
@@ -14,19 +13,21 @@ which is derived from the Lichess puzzle database.
 Usage:
 >>> import chess_puzzle_kit as cpk
 >>> # Download the default database if you don't have it
->>> # cpk.download_default_db()
+>>> # cpk.initialize_connection()
 >>>
 >>> # Or, if you have a custom database path:
->>> # cpk.set_db_path('/path/to/your/lichess_db_puzzle.db')
+>>> # cpk.initialize_connection('/path/to/your/database/or/connection')
 >>>
 >>> # Get a puzzle
 >>> puzzle = cpk.get_puzzle(themes=['mateIn2'], ratingRange=(1500, 2000))
 >>> print(puzzle)
+>>>
+>>> # Important: Close connections when your application finishes
+>>> # cpk.close_all_connections()
 
 The database contains the following columns:
 ['PuzzleId', 'FEN', 'Moves', 'Rating', 'RatingDeviation', 'Popularity', 'NbPlays', 'Themes', 'GameUrl', 'OpeningTags']
 """
-
 def get_puzzle(themes=None, ratingRange=None, popularityRange=None, count=1):
     """
     Retrieves a list of random puzzles based on specified criteria.
@@ -39,9 +40,9 @@ def get_puzzle(themes=None, ratingRange=None, popularityRange=None, count=1):
 
     Returns:
         list: A list of puzzle dictionaries matching the criteria.
-              Returns an empty list if no puzzles are found.
     """
     conn = get_connection()
+    db_type = get_database_type(conn)
 
     if themes is not None and not isinstance(themes, list):
         raise TypeError("Themes must be a list of strings.")
@@ -58,36 +59,37 @@ def get_puzzle(themes=None, ratingRange=None, popularityRange=None, count=1):
     if not isinstance(count, int) or count <= 0:
         raise ValueError("Count must be a positive integer.")
 
-    query = "SELECT * FROM puzzles WHERE 1=1"
+    placeholder = "?" if db_type == "sqlite3" else "%s"
+    query = 'SELECT * FROM puzzles WHERE 1=1'
     params = []
 
     if themes:
-        theme_clause = " OR ".join(["themes LIKE ?"] * len(themes))
-        query += f" AND ({theme_clause})"
+        like_operator = "LIKE" if db_type == "sqlite3" else "ILIKE"
+        theme_conditions = [f'"Themes" {like_operator} {placeholder}'] * len(themes)
+        query += " AND (" + " OR ".join(theme_conditions) + ")"
         params.extend([f"%{t}%" for t in themes])
+
     if ratingRange:
-        query += " AND rating BETWEEN ? AND ?"
+        query += f' AND CAST("Rating" AS INTEGER) BETWEEN {placeholder} AND {placeholder}'
         params.extend(ratingRange)
+
     if popularityRange:
-        query += " AND popularity BETWEEN ? AND ?"
+        query += f' AND CAST("Popularity" AS INTEGER) BETWEEN {placeholder} AND {placeholder}'
         params.extend(popularityRange)
 
-    query += " ORDER BY RANDOM() LIMIT ?"
+    random_func = "RANDOM()"
+    query += f" ORDER BY {random_func} LIMIT {placeholder}"
     params.append(count)
 
-    cursor = conn.execute(query, params)
-    columns = [col[0] for col in cursor.description]
+    cursor = conn.cursor()
+    cursor.execute(query, params)
+    columns = [desc[0] for desc in cursor.description]
     return [dict(zip(columns, row)) for row in cursor.fetchall()]
 
 
 def get_puzzle_raw(query, params=None):
     """
     Executes a raw SQL query against the puzzle database.
-
-    Warning:
-        This function is intended for advanced use. Be cautious about SQL
-        injection vulnerabilities if the query string is constructed from
-        user input. Use parameterized queries where possible.
 
     Args:
         query (str): The SQL query to execute.
@@ -97,7 +99,8 @@ def get_puzzle_raw(query, params=None):
         list: A list of dictionaries representing the query result.
     """
     conn = get_connection()
-    cursor = conn.execute(query, params or ())
+    cursor = conn.cursor()
+    cursor.execute(query, params or ())
     columns = [col[0] for col in cursor.description]
     return [dict(zip(columns, row)) for row in cursor.fetchall()]
 
@@ -116,9 +119,14 @@ def get_puzzle_by_id(puzzle_id):
         raise TypeError("PuzzleId must be a string.")
 
     conn = get_connection()
-    query = "SELECT * FROM puzzles WHERE PuzzleId = ?"
-    cursor = conn.execute(query, (puzzle_id,))
+    db_type = get_database_type(conn)
+    placeholder = "?" if db_type == "sqlite3" else "%s"
+
+    cursor = conn.cursor()
+    query = f'SELECT * FROM puzzles WHERE "PuzzleId" = {placeholder}'
+    cursor.execute(query, (puzzle_id,))
     row = cursor.fetchone()
+
     if row:
         columns = [col[0] for col in cursor.description]
         return dict(zip(columns, row))
@@ -133,8 +141,10 @@ def get_all_themes():
         set: A set of all available theme strings.
     """
     conn = get_connection()
-    query = "SELECT DISTINCT Themes FROM puzzles"
-    cursor = conn.execute(query)
+    query = 'SELECT DISTINCT "Themes" FROM puzzles'
+    cursor = conn.cursor()
+    cursor.execute(query)
+    
     themes = set()
     for row in cursor.fetchall():
         if row[0]:
@@ -150,8 +160,9 @@ def get_rating_range():
         tuple: (min_rating, max_rating).
     """
     conn = get_connection()
-    query = "SELECT MIN(Rating), MAX(Rating) FROM puzzles"
-    cursor = conn.execute(query)
+    query = 'SELECT MIN(CAST("Rating" AS INTEGER)), MAX(CAST("Rating" AS INTEGER)) FROM puzzles'
+    cursor = conn.cursor()
+    cursor.execute(query)
     return cursor.fetchone()
 
 
@@ -163,8 +174,9 @@ def get_popularity_range():
         tuple: (min_popularity, max_popularity).
     """
     conn = get_connection()
-    query = "SELECT MIN(Popularity), MAX(Popularity) FROM puzzles"
-    cursor = conn.execute(query)
+    query = 'SELECT MIN(CAST("Popularity" AS INTEGER)), MAX(CAST("Popularity" AS INTEGER)) FROM puzzles'
+    cursor = conn.cursor()
+    cursor.execute(query)
     return cursor.fetchone()
 
 
@@ -176,10 +188,20 @@ def get_puzzle_attributes():
         set: A set of attribute (column) names.
     """
     conn = get_connection()
-    query = "PRAGMA table_info(puzzles)"
-    cursor = conn.execute(query)
-    # The column name is in the second position (index 1) of the result rows
-    return {row[1] for row in cursor.fetchall()}
+    db_type = get_database_type(conn)
+    cursor = conn.cursor()
+    
+    if db_type == "sqlite3":
+        query = "PRAGMA table_info(puzzles)"
+        cursor.execute(query)
+        # The column name is in the second position (index 1)
+        return {row[1] for row in cursor.fetchall()}
+    elif db_type == "postgresql":
+        query = "SELECT column_name FROM information_schema.columns WHERE table_name = 'puzzles';"
+        cursor.execute(query)
+        return {row[0] for row in cursor.fetchall()}
+    else:
+        return set()
 
 
 def write_puzzles_to_file(puzzles, file_path, header=True):
@@ -193,7 +215,7 @@ def write_puzzles_to_file(puzzles, file_path, header=True):
     """
     if not isinstance(puzzles, list):
         raise TypeError("Puzzles must be a list of dictionaries.")
-    if not all(isinstance(puzzle, dict) for puzzle in puzzles):
+    if puzzles and not all(isinstance(puzzle, dict) for puzzle in puzzles):
         raise TypeError("Each item in the puzzles list must be a dictionary.")
 
     df = pd.DataFrame(puzzles)

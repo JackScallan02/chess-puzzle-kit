@@ -1,6 +1,6 @@
 [project]
 name = "ChessPuzzleKit"
-version = "1.0.0"
+version = "1.1.0"
 description = "A Python library for retrieving and filtering chess puzzles from the Lichess database."
 readme = "README.md"
 authors = [
@@ -11,6 +11,7 @@ requires-python = ">=3.7"
 dependencies = [
     "requests",
     "pandas",
+    "psycopg2"
 ]
 
 [project.urls]

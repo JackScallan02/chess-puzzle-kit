@@ -1,171 +1,159 @@
 import os
 import sqlite3
+import psycopg2
 import requests
-import csv
 from pathlib import Path
 
 # URL for the default chess puzzle database
 DB_URL = 'https://github.com/JackScallan02/chess-puzzle-kit/releases/download/v0.1.0/lichess_db_puzzle.db'
-# Default path to store the database in the user's home directory
 DEFAULT_PATH = Path.home() / '.chess_puzzles' / 'lichess_db_puzzle.db'
 
-_connections = {}  # Cache database connections keyed by their file path
-_current_db_path = None  # Stores a custom database path if set by the user
+_connections = {}  # Cache database connections
+_current_db_path = None  # Global override for DB path/URI
 
-def set_db_path(db_path):
+
+def get_database_type(db_connection):
     """
-    Set a custom database path to be used by get_connection().
-    Once set, all puzzle-fetching functions will use this database.
+    Determines the type of database from a given connection object.
 
     Args:
-        db_path (str or Path): The path to the SQLite database file.
+        db_connection: An active database connection object.
 
-    Raises:
-        FileNotFoundError: If the specified custom database file does not exist.
+    Returns:
+        str: "sqlite3", "postgresql", or "unknown".
+    """
+    if db_connection is None:
+        return "unknown"
+    module_name = db_connection.__class__.__module__
+    if "sqlite3" in module_name:
+        return "sqlite3"
+    elif "psycopg2" in module_name or "psycopg" in module_name:
+        return "postgresql"
+    else:
+        return "unknown"
+
+
+def set_db_path(db_path_or_uri):
+    """
+    Sets the global database path or URI for subsequent connections.
+
+    Args:
+        db_path_or_uri (str or Path): The path to a SQLite file or a PostgreSQL URI.
     """
     global _current_db_path
-    path = Path(db_path)
-    # If a custom path is set, it must already exist.
-    if not path.exists():
-        raise FileNotFoundError(f"Custom database file not found at {path}")
-    _current_db_path = path
+    _current_db_path = db_path_or_uri
+
 
 def download_default_db():
     """
-    Download the default chess puzzle database to the user's home directory.
-    This function creates the necessary directories if they don't exist.
+    Downloads the default SQLite chess puzzle database to DEFAULT_PATH.
     """
+    print(f"Default database not found. Downloading to {DEFAULT_PATH}...")
     os.makedirs(DEFAULT_PATH.parent, exist_ok=True)
-    print("Downloading chess puzzle database...")
     try:
         with requests.get(DB_URL, stream=True) as r:
-            r.raise_for_status()  # Raise an exception for HTTP errors (4xx or 5xx)
+            r.raise_for_status()
             with open(DEFAULT_PATH, "wb") as f:
-                for chunk in r.iter_content(8192): # Iterate over response content in chunks
+                for chunk in r.iter_content(8192):
                     f.write(chunk)
-        print(f"Database downloaded to {DEFAULT_PATH}")
+        if not DEFAULT_PATH.exists():
+             raise FileNotFoundError(f"Database file not found after download attempt at {DEFAULT_PATH}")
     except requests.exceptions.RequestException as e:
-        print(f"Error downloading database: {e}")
-        raise
+        raise ConnectionError(f"Failed to download default database: {e}")
+
+def initialize_connection(db_path_or_uri=None):
+    """
+    Initializes the database connection.
+
+    If no path or URI is provided, this function will check for the default
+    SQLite database, download it if it does not exist, and set it as the
+    active database for subsequent operations.
+
+    Args:
+        db_path_or_uri (str or Path, optional): The path to a SQLite file or a
+            PostgreSQL URI. If None, uses the default database path.
+            Defaults to None.
+
+    Returns:
+        An active database connection object.
+    """
+    if db_path_or_uri is None:
+        # If using the default path, check for existence and download if needed.
+        path_to_check = DEFAULT_PATH
+        if not path_to_check.exists():
+            download_default_db()
+        set_db_path(path_to_check)
+    else:
+        # If a specific path is provided, just set it.
+        set_db_path(db_path_or_uri)
+    
+    return get_connection()
+
 
 def get_connection():
     """
-    Returns a connection to the chess puzzle database.
-
-    This function first determines the database path (custom or default).
-    If the default database is not found, it will attempt to download it automatically.
-    If a custom path is set and the file is not found, it raises an error.
-    The connection is cached to avoid reconnecting on subsequent calls.
+    Retrieves or establishes a database connection based on prior initialization.
+    Caches connections for performance.
 
     Raises:
-        FileNotFoundError: If a custom database file is not found at the specified path.
-        requests.exceptions.RequestException: If an error occurs during database download.
+        ConnectionError: If the connection has not been initialized via
+                         `initialize_connection()` or `set_db_path()`.
 
     Returns:
-        sqlite3.Connection: A connection to the SQLite database.
+        An active database connection object.
     """
-    global _current_db_path
-    path = _current_db_path or DEFAULT_PATH
+    if not _current_db_path:
+        raise ConnectionError(
+            "Database connection not initialized. "
+            "Please call `initialize_connection()` before trying to connect."
+        )
 
-    # If the database file does not exist
+    path_or_uri = _current_db_path
+    conn_key = str(path_or_uri)
+    
+    if conn_key in _connections and _connections[conn_key]:
+        try:
+            # Ping PostgreSQL connection to check if it's alive
+            if get_database_type(_connections[conn_key]) == "postgresql":
+                _connections[conn_key].cursor().execute("SELECT 1")
+            # SQLite connections are file-based and don't typically "die"
+            return _connections[conn_key]
+        except (psycopg2.InterfaceError, psycopg2.OperationalError):
+            del _connections[conn_key]  # Stale connection, remove from cache
+
+    # Handle PostgreSQL connection
+    if isinstance(path_or_uri, str) and path_or_uri.startswith(("postgresql://", "postgres://")):
+        try:
+            conn = psycopg2.connect(path_or_uri)
+            _connections[conn_key] = conn
+            return conn
+        except psycopg2.Error as e:
+            raise ConnectionError(f"Failed to connect to PostgreSQL: {e}")
+
+    # Handle SQLite connection
+    path = Path(path_or_uri)
+    if not path.is_absolute():
+       path = Path.cwd() / path
+    
     if not path.exists():
-        # If we are using the default path, attempt to download it
-        if path == DEFAULT_PATH:
-            print(f"Database not found at {DEFAULT_PATH}. Attempting to download...")
-            download_default_db()
-            # After download, check if it exists now. If not, something went wrong.
-            if not path.exists():
-                raise FileNotFoundError(f"Failed to download database to {DEFAULT_PATH}. Please check network connection or permissions.")
-        else:
-            # If a custom path was specified but the file doesn't exist, raise an error
-            raise FileNotFoundError(
-                f"Database file not found at {path}. "
-                "Ensure the custom path points to an existing database file."
-            )
+        raise FileNotFoundError(f"Database file not found at '{path}'. Please ensure the path is correct.")
 
-    # If connection to this path is not already cached, create and cache it
-    if path not in _connections:
-        _connections[path] = sqlite3.connect(path)
-        print(f"Connected to database at {path}")
-    else:
-        print(f"Using cached connection to database at {path}")
+    try:
+        conn = sqlite3.connect(path)
+        _connections[conn_key] = conn
+        return conn
+    except sqlite3.Error as e:
+        raise ConnectionError(f"Failed to connect to SQLite database at '{path}': {e}")
 
-    return _connections[path]
 
 def close_all_connections():
     """
-    Closes all cached database connections.
-    This is useful for ensuring resources are released, e.g., before exiting the application.
+    Closes all currently cached database connections.
     """
     global _connections
-    print("Closing all database connections...")
-    for path, conn in _connections.items():
-        conn.close()
-        print(f"Closed connection to {path}")
+    for path, conn in list(_connections.items()):
+        try:
+            conn.close()
+        except Exception as e:
+            print(f"Error closing connection to {path}: {e}")
     _connections = {}
-
-def create_db_from_csv(csv_path, db_path):
-    """
-    Creates a SQLite database from a CSV file.
-
-    Args:
-        csv_path (str or Path): Path to the input CSV file.
-        db_path (str or Path): Path where the SQLite database should be created.
-
-    Raises:
-        FileNotFoundError: If the CSV file does not exist.
-        Exception: For any database errors.
-
-    Returns:
-        db_path (Path): The path to the created SQLite database.
-    """
-    csv_path = Path(csv_path)
-    db_path = Path(db_path)
-
-    if not csv_path.exists():
-        raise FileNotFoundError(f"CSV file not found at {csv_path}")
-
-    # Ensure directory exists for the database file
-    os.makedirs(db_path.parent, exist_ok=True)
-
-    print(f"Creating SQLite database at {db_path} from CSV file {csv_path}...")
-
-    # Connect to (or create) the database file
-    conn = sqlite3.connect(db_path)
-    cursor = conn.cursor()
-
-    # Read the header row from the CSV to create table columns
-    with open(csv_path, newline='', encoding='utf-8') as csvfile:
-        reader = csv.reader(csvfile)
-        headers = next(reader)
-
-        # You can customize the table name and schema here:
-        table_name = 'puzzles'
-
-        # Drop table if it already exists
-        cursor.execute(f"DROP TABLE IF EXISTS {table_name}")
-
-        # Create table statement with all columns as TEXT (or adjust as needed)
-        columns = ', '.join([f'"{col}" TEXT' for col in headers])
-        create_table_sql = f"CREATE TABLE {table_name} ({columns})"
-        cursor.execute(create_table_sql)
-
-        # Prepare insert statement
-        placeholders = ', '.join(['?'] * len(headers))
-        insert_sql = f"INSERT INTO {table_name} ({', '.join(headers)}) VALUES ({placeholders})"
-
-        # Insert all rows
-        row_count = 0
-        for row in reader:
-            cursor.execute(insert_sql, row)
-            row_count += 1
-
-    conn.commit()
-    conn.close()
-
-    print(f"Database created successfully with {row_count} records.")
-
-    # Optionally, set the created DB as current DB path
-    set_db_path(db_path)
-
-    return db_path
