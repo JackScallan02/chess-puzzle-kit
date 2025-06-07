@@ -36,6 +36,9 @@ for p in puzzles:
 # Retrieve all possible themes
 themes = cpk.get_all_themes()
 print(themes)
+
+# Close any database connections
+cpk.close_all_connections()
 ```
 
 ### Supported Puzzle Themes
