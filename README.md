@@ -9,8 +9,8 @@
   - Theme (e.g. `fork`, `pin`, `mateIn2`, etc.)
   - Rating or popularity range
   - Other attributes
-  - Automatically downloads and caches a Lichess puzzle database (almost 5 million puzzles, ~900 MB)
-  - Supports custom PostgreSQL or SQLite database connections
+- Automatically downloads and caches a Lichess puzzle database (almost 5 million puzzles, ~900 MB)
+- Supports custom PostgreSQL or SQLite database connections
 
 ## Installation
 You can install this package from [PyPI](https://pypi.org/project/ChessPuzzleKit/):
