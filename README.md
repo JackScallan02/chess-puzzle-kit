@@ -1,15 +1,16 @@
 # ChessPuzzleKit
 [![PyPI version](https://img.shields.io/pypi/v/ChessPuzzleKit.svg)](https://pypi.org/project/ChessPuzzleKit/)
 
-**ChessPuzzleKit** is a Python library for accessing and working with chess puzzles from the [Lichess puzzle database](https://database.lichess.org/#puzzles). It provides functionality to retrieve unique puzzles by theme types, rating, and popularity, all with zero setup.
+**ChessPuzzleKit** is a Python library for accessing and working with nearly 5 million chess puzzles from the [Lichess puzzle database](https://database.lichess.org/#puzzles). It provides functionality to retrieve unique puzzles by theme types, rating, popularity, and more, all with zero setup.
 
 ## Features
 
-- Automatically downloads and caches a Lichess puzzle database (almost 5 million puzzles, ~900 MB)
 - Filter puzzles by:
   - Theme (e.g. `fork`, `pin`, `mateIn2`, etc.)
   - Rating or popularity range
-- Returns puzzles as Python dictionaries
+  - Other attributes
+  - Automatically downloads and caches a Lichess puzzle database (almost 5 million puzzles, ~900 MB)
+  - Supports custom PostgreSQL or SQLite database connections
 
 ## Installation
 You can install this package from [PyPI](https://pypi.org/project/ChessPuzzleKit/):
@@ -21,20 +22,20 @@ pip install ChessPuzzleKit
 ```py
 import ChessPuzzleKit as cpk
 
-# Optional: use custom sqlite database or CSV file
-custom_db_path = cpk.create_db_csv("/path/to/local_csv_file.csv")
-cpk.set_db_path(custom_db_path)
+# Initializes an SQLite database if none provided
+cpk.initialize_connection()
 
-# Or, locally download the database if it doesn't exist
-# By default, the database gets downloaded to .chess_puzzles in the HOME directory
-cpk.get_connnection()
+# Optional: use custom database path or connection string
+cpk.initialize_connection('/path/to/database')
 
+# Get puzzles and optionally filter
 puzzles = cpk.get_puzzle(themes=['fork'], ratingRange=[2000, 2200], count=3)
-themes = cpk.get_all_themes()
-print(themes)
-
 for p in puzzles:
     print(p['fen'], p['moves'], p['rating'])
+
+# Retrieve all possible themes
+themes = cpk.get_all_themes()
+print(themes)
 ```
 
 ### Supported Puzzle Themes
