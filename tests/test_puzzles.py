@@ -1,7 +1,7 @@
 import pytest
 import pandas as pd
 from pathlib import Path
-import ChessPuzzleKit as cpk
+import chesspuzzlekit as cpk
 
 def test_get_all_themes():
     themes = cpk.get_all_themes()

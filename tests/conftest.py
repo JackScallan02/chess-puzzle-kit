@@ -2,7 +2,7 @@ import pytest
 import pandas as pd
 import sqlite3
 from pathlib import Path
-import ChessPuzzleKit as cpk
+import chesspuzzlekit as cpk
 
 # Define sample data for our test database
 SAMPLE_PUZZLES = pd.DataFrame([

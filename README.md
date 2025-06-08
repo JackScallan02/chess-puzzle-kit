@@ -20,7 +20,7 @@ pip install ChessPuzzleKit
 
 ## Usage
 ```py
-import ChessPuzzleKit as cpk
+import chesspuzzlekit as cpk
 
 # Initializes an SQLite database if none provided
 cpk.initialize_connection()
